@@ -40,6 +40,7 @@
         <button id="saveJSONButton">Save as JSON</button>
         <button id="saveParagraphButton">Save as Paragraph</button>
         <button id="loadButton">Load Questions</button>
+        <button id="downloadSampleJSONButton">Download Sample JSON</button>
     </div>
     <script>
         let loadedQuestions = [];
@@ -195,6 +196,39 @@
 
         // Event listener for the "Load" button
         document.getElementById("loadButton").addEventListener("click", loadQuestions);
+
+        // Sample JSON data
+        const sampleQuestions = [
+    {
+        "id": 1,
+        "question": "Are you smoking?",
+        "responseYes": "Yes, they are smoking",
+        "responseNo": "No, they are not smoking"
+    },
+    {
+        "id": 2,
+        "question": "Do you exercise regularly?",
+        "responseYes": "Yes, they exercise regularly",
+        "responseNo": "No, they do not exercise regularly"
+    }
+]
+;
+
+        // Event listener for the "Download Sample JSON" button
+        document.getElementById("downloadSampleJSONButton").addEventListener("click", () => {
+            const jsonData = JSON.stringify(sampleQuestions);
+
+            const blob = new Blob([jsonData], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "sample-questions.json";
+            a.click();
+
+            // Clean up
+            URL.revokeObjectURL(url);
+        });
     </script>
 </body>
 </html>
+
