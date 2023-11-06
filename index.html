@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: left;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        button {
+            display: block;
+            margin-top: 20px;
+        }
+    </style>
+    <title>Questionnaire</title>
+</head>
+<body>
+    <div class="container">
+        <h1>Questionnaire</h1>
+        <form id="questionForm">
+            <!-- Questions with question and response parts will be loaded dynamically -->
+        </form>
+        <button id="saveCSVButton">Save as CSV</button>
+        <button id="saveJSONButton">Save as JSON</button>
+        <button id="saveParagraphButton">Save as Paragraph</button>
+        <button id="loadButton">Load Questions</button>
+    </div>
+    <script>
+        let loadedQuestions = [];
+
+        // Function to generate the questionnaire
+        function generateQuestionnaire(questions) {
+            const form = document.getElementById("questionForm");
+            
+            questions.forEach((question) => {
+                const div = document.createElement("div");
+                div.classList.add("question");
+
+                const questionText = document.createElement("p");
+                questionText.textContent = question.question;
+
+                const yesRadio = document.createElement("input");
+                yesRadio.type = "radio";
+                yesRadio.name = "question-" + question.id;
+                yesRadio.value = "yes";
+                yesRadio.id = "yes-" + question.id;
+
+                const yesLabel = document.createElement("label");
+                yesLabel.textContent = "Yes";
+                yesLabel.htmlFor = "yes-" + question.id;
+
+                const noRadio = document.createElement("input");
+                noRadio.type = "radio";
+                noRadio.name = "question-" + question.id;
+                noRadio.value = "no";
+                noRadio.id = "no-" + question.id;
+
+                const noLabel = document.createElement("label");
+                noLabel.textContent = "No";
+                noLabel.htmlFor = "no-" + question.id;
+
+                div.appendChild(questionText);
+                div.appendChild(yesRadio);
+                div.appendChild(yesLabel);
+                div.appendChild(noRadio);
+                div.appendChild(noLabel);
+
+                form.appendChild(div);
+            });
+        }
+
+        // Function to save answers as CSV
+        function saveAsCSV() {
+            const formData = new FormData(document.getElementById("questionForm"));
+            const csvData = [["Question Number", "Question", "Answer"]];
+
+            loadedQuestions.forEach((question) => {
+                const questionId = question.id;
+                const questionText = question.question;
+                const value = formData.get(`question-${questionId}`);
+                const response = value === "yes" ? question.responseYes : question.responseNo;
+                csvData.push([questionId, questionText, response]);
+            });
+
+            const csvContent = csvData.map(row => row.join(',')).join('\n');
+            
+            // Create a data URI and trigger download
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "answers.csv";
+            a.click();
+
+            // Clean up
+            URL.revokeObjectURL(url);
+        }
+
+        // Function to save responses as JSON
+        function saveAsJSON() {
+            const formData = new FormData(document.getElementById("questionForm"));
+            const responses = {};
+
+            formData.forEach((value, name) => {
+                const [questionId, response] = name.split("-");
+                if (!responses[questionId]) {
+                    responses[questionId] = {};
+                }
+                responses[questionId][response] = value;
+            });
+
+            const jsonData = JSON.stringify(responses);
+
+            const blob = new Blob([jsonData], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "responses.json";
+            a.click();
+
+            // Clean up
+            URL.revokeObjectURL(url);
+        }
+
+        // Function to save responses as a paragraph
+        function saveAsParagraph() {
+            const formData = new FormData(document.getElementById("questionForm"));
+            const sentences = [];
+            
+            loadedQuestions.forEach((question) => {
+                const questionId = question.id;
+                const responseYes = question.responseYes;
+                const responseNo = question.responseNo;
+                const value = formData.get(`question-${questionId}`);
+                const response = value === "yes" ? responseYes : responseNo;
+                sentences.push(response);
+            });
+
+            const paragraph = sentences.join(". ") + ".";
+
+            const blob = new Blob([paragraph], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "responses.txt";
+            a.click();
+
+            // Clean up
+            URL.revokeObjectURL(url);
+        }
+
+        // Event listeners for the "Save" buttons
+        document.getElementById("saveCSVButton").addEventListener("click", saveAsCSV);
+        document.getElementById("saveJSONButton").addEventListener("click", saveAsJSON);
+        document.getElementById("saveParagraphButton").addEventListener("click", saveAsParagraph);
+
+        // Function to load questions from a JSON file
+        function loadQuestions() {
+            const input = document.createElement("input");
+            input.type = "file";
+
+            input.addEventListener("change", (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        const jsonData = e.target.result;
+                        loadedQuestions = JSON.parse(jsonData);
+
+                        // Generate the questionnaire with the loaded questions
+                        generateQuestionnaire(loadedQuestions);
+                    };
+                    reader.readAsText(file);
+                }
+            });
+
+            input.click();
+        }
+
+        // Event listener for the "Load" button
+        document.getElementById("loadButton").addEventListener("click", loadQuestions);
+    </script>
+</body>
+</html>
