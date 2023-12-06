@@ -6,6 +6,7 @@
     <style>
         body {
             font-family: Arial, sans-serif;
+            font-size: 22x; /* Increase font size */
         }
 
         .container {
@@ -27,6 +28,16 @@
             display: block;
             margin-top: 20px;
         }
+
+        /* Add some spacing for checkboxes */
+        .question {
+            margin-bottom: 10px;
+        }
+
+        /* Style checkboxes */
+        input[type="checkbox"] {
+            margin-right: 10px;
+        }
     </style>
     <title>Questionnaire</title>
 </head>
@@ -34,28 +45,34 @@
     <div class="container">
         <h1>Questionnaire</h1>
         <form id="questionForm">
-            <!-- Questions with question and response parts will be loaded dynamically -->
+            <!-- Questions with question, response parts, and checkboxes -->
         </form>
-        <button id="saveCSVButton">Save as CSV</button>
-        <button id="saveJSONButton">Save as JSON</button>
+        <!-- <button id="saveCSVButton">Save as CSV</button>
+        <button id="saveJSONButton">Save as JSON</button> -->
         <button id="saveParagraphButton">Save as Paragraph</button>
         <button id="loadButton">Load Questions</button>
         <button id="downloadSampleJSONButton">Download Sample JSON</button>
+        <!-- <button id="loadPCL5">Load PCL5</button> -->
+
     </div>
     <script>
         let loadedQuestions = [];
 
-        // Function to generate the questionnaire
-        function generateQuestionnaire(questions) {
+        // Function to generate the questionnaire with checkboxes
+        function generateQuestionnaire(Questionnaire) {
             const form = document.getElementById("questionForm");
-            
+            const questionType = Questionnaire.Type;
+            console.log(Questionnaire.Type)
+            if(questionType == "Yes/No"){
+            questions = Questionnaire.Questions
             questions.forEach((question) => {
                 const div = document.createElement("div");
                 div.classList.add("question");
 
                 const questionText = document.createElement("p");
                 questionText.textContent = question.question;
-
+                
+  
                 const yesRadio = document.createElement("input");
                 yesRadio.type = "radio";
                 yesRadio.name = "question-" + question.id;
@@ -76,101 +93,183 @@
                 noLabel.textContent = "No";
                 noLabel.htmlFor = "no-" + question.id;
 
+        
+                const naRadio = document.createElement("input");
+                naRadio.type = "radio";
+                naRadio.name = "question-" + question.id;
+                naRadio.value = "na";
+                naRadio.id = "na-" + question.id;
+
+                const naLabel = document.createElement("label");
+                naLabel.textContent = "Na";
+                naLabel.htmlFor = "na-" + question.id;
+
                 div.appendChild(questionText);
                 div.appendChild(yesRadio);
                 div.appendChild(yesLabel);
                 div.appendChild(noRadio);
                 div.appendChild(noLabel);
+                div.appendChild(naRadio);
+                div.appendChild(naLabel);
 
                 form.appendChild(div);
-            });
+            
+         
+                } )
+            }
+
+            if(questionType == "Options"){
+            questions = Questionnaire.Questions
+            questions.forEach((question) => {
+                const div = document.createElement("div");
+                div.classList.add("question");
+                
+                const questionText = document.createElement("p");
+                questionText.textContent = question.question;
+                
+                console.log(question.question)
+                const answers = question.Answers;
+                answers.forEach((answer) => {
+                    const radio = document.createElement("input");
+                    radio.type = "radio";
+                    radio.name = "question-" + question.id;
+                    radio.value = answer.value;
+                    radio.id = answer.id + "-" + question.id;
+
+                    const label = document.createElement("label");
+                    label.textContent = answer.label;
+                    label.htmlFor = answer.id + "-" + question.id;
+
+                    div.appendChild(radio);
+                    div.appendChild(label);
+                });
+
+                form.appendChild(div);
+            
+         
+                } )
+            }
         }
 
-        // Function to save answers as CSV
-        function saveAsCSV() {
+        // Function to save answers as CSV, JSON, or Paragraph based on checkbox selection
+        function saveResponsesCSV() {
             const formData = new FormData(document.getElementById("questionForm"));
-            const csvData = [["Question Number", "Question", "Answer"]];
 
-            loadedQuestions.forEach((question) => {
+            const csvData = [["Question Number", "Question", "Answer", "Answer_Response", "Numaric_Answer"]];
+            const jsonResponses = {};
+            const paragraphResponses = [];
+           
+            questions.forEach((question, index) => {
                 const questionId = question.id;
                 const questionText = question.question;
                 const value = formData.get(`question-${questionId}`);
-                const response = value === "yes" ? question.responseYes : question.responseNo;
-                csvData.push([questionId, questionText, response]);
+                const responseYes = question.responseYes;
+                const responseNo = question.responseNo;
+                const response = value === "yes" ? responseYes : responseNo;
+                const numaricResponse = value === "yes" ? 1 : 0;
+
+                
+                csvData.push([questionId, questionText, response, numaricResponse]);
+                jsonResponses[questionId] = value;
+                paragraphResponses.push(response);
+                
             });
 
             const csvContent = csvData.map(row => row.join(',')).join('\n');
             
-            // Create a data URI and trigger download
-            const blob = new Blob([csvContent], { type: 'text/csv' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "answers.csv";
-            a.click();
+            // Create a data URI and trigger download for CSV
+            const csvBlob = new Blob([csvContent], { type: 'text/csv' });
+            const csvUrl = URL.createObjectURL(csvBlob);
+            const csvLink = document.createElement("a");
+            csvLink.href = csvUrl;
+            csvLink.download = "answers.csv";
+            csvLink.click();
 
             // Clean up
-            URL.revokeObjectURL(url);
+            URL.revokeObjectURL(csvUrl);
+
         }
 
-        // Function to save responses as JSON
-        function saveAsJSON() {
+        function saveResponsesJson() {
             const formData = new FormData(document.getElementById("questionForm"));
-            const responses = {};
 
-            formData.forEach((value, name) => {
-                const [questionId, response] = name.split("-");
-                if (!responses[questionId]) {
-                    responses[questionId] = {};
-                }
-                responses[questionId][response] = value;
-            });
-
-            const jsonData = JSON.stringify(responses);
-
-            const blob = new Blob([jsonData], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "responses.json";
-            a.click();
-
-            // Clean up
-            URL.revokeObjectURL(url);
-        }
-
-        // Function to save responses as a paragraph
-        function saveAsParagraph() {
-            const formData = new FormData(document.getElementById("questionForm"));
-            const sentences = [];
-            
-            loadedQuestions.forEach((question) => {
+            const csvData = [["Question Number", "Question", "Answer", "Answer_Response", "Numaric_Answer"]];
+            const jsonResponses = {};
+            const paragraphResponses = [];
+           
+            questions.forEach((question, index) => {
                 const questionId = question.id;
+                const questionText = question.question;
+                const value = formData.get(`question-${questionId}`);
                 const responseYes = question.responseYes;
                 const responseNo = question.responseNo;
-                const value = formData.get(`question-${questionId}`);
                 const response = value === "yes" ? responseYes : responseNo;
-                sentences.push(response);
+                const numaricResponse = value === "yes" ? 1 : 0;
+
+                
+                csvData.push([questionId, questionText, response, numaricResponse]);
+                jsonResponses[questionId] = value;
+                paragraphResponses.push(response);
+                
             });
 
-            const paragraph = sentences.join(". ") + ".";
+           
 
-            const blob = new Blob([paragraph], { type: "text/plain" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "responses.txt";
-            a.click();
+            // Create JSON blob and trigger download
+            const jsonBlob = new Blob([JSON.stringify(jsonResponses)], { type: "application/json" });
+            const jsonUrl = URL.createObjectURL(jsonBlob);
+            const jsonLink = document.createElement("a");
+            jsonLink.href = jsonUrl;
+            jsonLink.download = "responses.json";
+            jsonLink.click();
 
             // Clean up
-            URL.revokeObjectURL(url);
+            URL.revokeObjectURL(jsonUrl);
+
+           
         }
 
-        // Event listeners for the "Save" buttons
-        document.getElementById("saveCSVButton").addEventListener("click", saveAsCSV);
-        document.getElementById("saveJSONButton").addEventListener("click", saveAsJSON);
-        document.getElementById("saveParagraphButton").addEventListener("click", saveAsParagraph);
+        function saveResponsesParagraph() {
+            const formData = new FormData(document.getElementById("questionForm"));
 
+            const csvData = [["Question Number", "Question", "Answer", "Answer_Response", "Numaric_Answer"]];
+            const jsonResponses = {};
+            const paragraphResponses = [];
+           
+            questions.forEach((question, index) => {
+                const questionId = question.id;
+                const questionText = question.question;
+                const value = formData.get(`question-${questionId}`);
+                const responseYes = question.responseYes;
+                const responseNo = question.responseNo;
+                const response = value === "yes" ? responseYes : responseNo;
+                const numaricResponse = value === "yes" ? 1 : 0;
+
+                if ((value!="na")&&(value)){
+                csvData.push([questionId, questionText, response, numaricResponse]);
+                jsonResponses[questionId] = value;
+                paragraphResponses.push(response);
+                }
+                
+            });
+
+
+            // Create Paragraph blob and trigger download
+            const paragraphBlob = new Blob([paragraphResponses.join(". ") + "."], { type: "text/plain" });
+            const paragraphUrl = URL.createObjectURL(paragraphBlob);
+            const paragraphLink = document.createElement("a");
+            paragraphLink.href = paragraphUrl;
+            paragraphLink.download = "responses.txt";
+            paragraphLink.click();
+
+            // Clean up
+            URL.revokeObjectURL(paragraphUrl);
+        }
+        // Event listener for the "Save" button
+        // document.getElementById("saveCSVButton").addEventListener("click", saveResponsesCSV);
+        // document.getElementById("saveJSONButton").addEventListener("click", saveResponsesJson);
+        document.getElementById("saveParagraphButton").addEventListener("click", saveResponsesParagraph);
+        // document.getElementById("loadPCL5").addEventListener("click", loadPCL5);
         // Function to load questions from a JSON file
         function loadQuestions() {
             const input = document.createElement("input");
@@ -194,11 +293,10 @@
             input.click();
         }
 
-        // Event listener for the "Load" button
-        document.getElementById("loadButton").addEventListener("click", loadQuestions);
-
-        // Sample JSON data
-        const sampleQuestions =  [
+        function loadPCL5() {
+          
+              // PCL5 JSON data
+        const PCL5 = [
     {
         "id": 1,
         "question": "Are you smoking?",
@@ -211,7 +309,176 @@
         "responseYes": "Yes, they exercise regularly",
         "responseNo": "No, they do not exercise regularly"
     }
-];
+]
+;
+
+                        // Generate the questionnaire with the loaded questions
+        generateQuestionnaire(PCL5);
+            
+       
+        }
+
+        // Event listener for the "Load" button
+        document.getElementById("loadButton").addEventListener("click", loadQuestions);
+        
+        // Sample JSON data
+        const sampleQuestions = 
+        {
+    "Type": "Yes/No",
+    "Questions": [
+        {
+            "id": 1,
+            "question": "האם הוא מעדיף לעשות דברים לבד מאשר לעשות אותם עם אנשים אחרים?",
+            "responseYes": "הוא מעדיף לעשות דברים לבד",
+            "responseNo": "הוא מעדיף לעשות דברים עם אנשים אחרים"
+        },
+        {
+            "id": 2,
+            "question": "האם הוא מעדיף לעשות דברים באותו אופן (למשל, שגרת הבוקר או המסלול בסופר)?",
+            "responseYes": "הוא מעדיף לעשות דברים באותו אופן",
+            "responseNo": "הוא אינו מעדיף לעשות דברים באותו אופן"
+        },
+        {
+            "id": 3,
+            "question": "האם הוא שקע בנושאים מסוימים וגילה אובססיביות כלפיהם?",
+            "responseYes": "הוא שקע בנושאים מסוימים וגילה אובססיביות",
+            "responseNo": "הוא לא שקע בנושאים מסוימים ולא גילה אובססיביות"
+        },
+        {
+            "id": 4,
+            "question": "האם הוא הרגיש רגישות רבה לרעשים?",
+            "responseYes": "הוא הרגיש רגישות רבה לרעשים",
+            "responseNo": "הוא לא הרגיש רגישות רבה לרעשים"
+        },
+        {
+            "id": 5,
+            "question": "האמרו עליו שהוא נוטה להתחצף למרות שהקפיד על נימוסים?",
+            "responseYes": "אמרו עליו שהוא נוטה להתחצף למרות שהקפיד על נימוסים",
+            "responseNo": "לא אמרו עליו שהוא נוטה להתחצף למרות שהקפיד על נימוסים"
+        },
+        {
+            "id": 6,
+            "question": "האם הוא דמיין כיצד דמויות ספרותיות יכולות להיראות במציאות?",
+            "responseYes": "הוא דמיין כיצד דמויות ספרותיות יכולות להיראות במציאות",
+            "responseNo": "הוא לא דימיין כיצד דמויות ספרותיות יכולות להיראות במציאות"
+        },
+        {
+            "id": 7,
+            "question": "האם התקשה לדבר בפני קבוצה של אנשים?",
+            "responseYes": "התקשה לדבר בפני קבוצה של אנשים",
+            "responseNo": "לא התקשה לדבר בפני קבוצה של אנשים"
+        },
+        {
+            "id": 8,
+            "question": "האם גילה עניין רב יותר בדברים מסוימים מאשר באנשים?",
+            "responseYes": "גילה עניין רב יותר בדברים מסוימים",
+            "responseNo": "לא גילה עניין רב יותר בדברים מסוימים מאשר באנשים"
+        },
+        {
+            "id": 9,
+            "question": "האם גילה עניין מיוחד במספרים, תאריכים וסטטיסטיקות?",
+            "responseYes": "גילה עניין מיוחד במספרים, תאריכים וסטטיסטיקות",
+            "responseNo": "לא גילה עניין מיוחד במספרים, תאריכים וסטטיסטיקות"
+        },
+        {
+            "id": 10,
+            "question": "האם הוא העדיף ספרים וסרטים המבוססים על סיפור אמיתי מאשר מדע בדיוני?",
+            "responseYes": "הוא העדיף ספרים וסרטים המבוססים על סיפור אמיתי",
+            "responseNo": "הוא העדיף מדע בדיוני"
+        },
+        {
+            "id": 11,
+            "question": "האם התקשה להתמודד עם שינויים בשגרה היומיומית שלו?",
+            "responseYes": "התקשה להתמודד עם שינויים בשגרה היומיומית שלו",
+            "responseNo": "לא התקשה להתמודד עם שינויים בשגרה היומיומית שלו"
+        },
+        {
+            "id": 12,
+            "question": "האם התקשה להבין כוונות, הבעות פנים ושפת גוף של אנשים אחרים?",
+            "responseYes": "התקשה להבין כוונות, הבעות פנים ושפת גוף של אנשים אחרים",
+            "responseNo": "לא התקשה להבין כוונות, הבעות פנים ושפת גוף של אנשים אחרים"
+        },
+        {
+            "id": 13,
+            "question": "האם התקשה לנהל שיחות חולין עם אנשים זרים?",
+            "responseYes": "התקשה לנהל שיחות חולין עם אנשים זרים",
+            "responseNo": "לא התקשה לנהל שיחות חולין עם אנשים זרים"
+        },
+        {
+            "id": 14,
+            "question": "האם הבחין בשינויים קלים מאוד שהתרחשו במראה החיצוני של אנשים מוכרים?",
+            "responseYes": "הבחין בשינויים קלים מאוד שהתרחשו במראה החיצוני של אנשים מוכרים",
+            "responseNo": "לא הבחין בשינויים קלים מאוד במראה החיצוני של אנשים מוכרים"
+        },
+        {
+            "id": 15,
+            "question": "האסף מידע רב על דברים שמעניינים אותו?",
+            "responseYes": "הוא אסף מידע רב על דברים שמעניינים אותו",
+            "responseNo": "הוא לא אסף מידע רב על דברים שמעניינים אותו"
+        },
+        {
+            "id": 16,
+            "question": "אמרו לו שהוא חוזר שוב ושוב על אותם הדברים?",
+            "responseYes": "אמרו לו שהוא חוזר שוב ושוב על אותם הדברים",
+            "responseNo": "לא אמרו לו שהוא חוזר שוב ושוב על אותם הדברים"
+        },
+        {
+            "id": 17,
+            "question": "האם התעוררה בו חרדה בעקבות היתקלות במצבים חברתיים חדשים?",
+            "responseYes": " התעוררה בו חרדה בעקבות היתקלות במצבים חברתיים חדשים",
+            "responseNo": " לא התעוררה בו חרדה בעקבות היתקלות במצבים חברתיים חדשים"
+        },
+        {
+            "id": 18,
+            "question": "האם הוא הוא תכנן בקפידה פעילויות עתידיות?",
+            "responseYes": " הוא תכנן בקפידה פעילויות עתידיות",
+            "responseNo": " לא הוא תכנן בקפידה פעילויות עתידיות"
+        }
+,
+    {
+        "id": 19,
+        "question": "האם הוא התקשה ליצור אינטראקציות ולשחק עם ילדים?",
+        "responseYes": "הוא התקשה ליצור אינטראקציות ולשחק עם ילדים",
+        "responseNo": "לא התקשה ליצור אינטראקציות ולשחק עם ילדים"
+    },
+    {
+        "id": 20,
+        "question": "האם הוא התקשה להבין בדיחות שאנשים סיפרו לו?",
+        "responseYes": "הוא התקשה להבין בדיחות שאנשים סיפרו לו",
+        "responseNo": "לא התקשה להבין בדיחות שאנשים סיפרו לו"
+    },
+    {
+        "id": 21,
+        "question": "האם הוא התקשה לבצע דברים באופן ספונטני?",
+        "responseYes": " הוא התקשה לבצע דברים באופן ספונטני",
+        "responseNo": "לא התקשה לבצע דברים באופן ספונטני"
+    },
+    {
+        "id": 22,
+        "question": "האם הוא התקשה לחזור ולהשלים מטלות לאחר שהוסחה דעתו?",
+        "responseYes": "הוא התקשה לחזור ולהשלים מטלות לאחר שהוסחה דעתו",
+        "responseNo": "לא התקשה לחזור ולהשלים מטלות לאחר שהוסחה דעתו"
+    },
+    {
+        "id": 23,
+        "question": "האם הבחין בדפוסים שחוזרים על עצמם בדברים ומצבים שונים?",
+        "responseYes": "הבחין בדפוסים שחוזרים על עצמם בדברים ומצבים שונים",
+        "responseNo": "לא הבחין בדפוסים שחוזרים על עצמם בדברים ומצבים שונים"
+    },
+    {
+        "id": 24,
+        "question": "האם התאכזב שלא הצליח להעמיק את ידיעותיו בתחומי העניין שלו?",
+        "responseYes": "התאכזב כשלא הצליח להעמיק את ידיעותיו בתחומי העניין שלו",
+        "responseNo": "לא התאכזב כשלא הצליח להעמיק את ידיעותיו בתחומי העניין שלו"
+    }
+]
+}
+    
+    
+
+
+
+;
 
         // Event listener for the "Download Sample JSON" button
         document.getElementById("downloadSampleJSONButton").addEventListener("click", () => {
